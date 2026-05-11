@@ -1,0 +1,12 @@
+  # 前端
+  ai-code-agent-frontend/node_modules/
+  ai-code-agent-frontend/dist/
+  ai-code-agent-frontend/.eslintcache
+
+  # 后端
+  ai-code-agent-backend/target/
+  ai-code-agent-backend/.idea/
+
+  # 系统文件
+  .DS_Store
+  Thumbs.db
