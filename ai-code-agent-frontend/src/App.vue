@@ -1,15 +1,23 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import zhCN from 'ant-design-vue/es/locale/zh_CN'
 import BasicLayout from '@/layouts/BasicLayout.vue'
 import { healthCheck } from '@/api/healthController'
+import { useUserStore } from '@/stores/user'
 
-healthCheck()
-  .then((res) => {
-    console.log(res)
-  })
-  .catch(() => {
-    /* 后端未启动时忽略，与后端联调时可删除 catch 观察完整响应 */
-  })
+const userStore = useUserStore()
+
+onMounted(() => {
+  healthCheck()
+    .then((res) => {
+      console.log(res)
+    })
+    .catch(() => {
+      /* 后端未启动时忽略 */
+    })
+
+  userStore.fetchLoginUser()
+})
 </script>
 
 <template>

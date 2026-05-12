@@ -20,7 +20,35 @@
       </a-col>
       <a-col>
         <div class="user-login-status">
-          <a-button type="primary">登录</a-button>
+          <template v-if="userStore.isLoggedIn">
+            <a-dropdown>
+              <a-space class="user-dropdown-trigger">
+                <a-avatar :size="32" :src="userStore.loginUser?.userAvatar">
+                  {{ (userStore.loginUser?.userName || '用')[0] }}
+                </a-avatar>
+                <span class="user-name">{{ userStore.loginUser?.userName }}</span>
+                <DownOutlined />
+              </a-space>
+              <template #overlay>
+                <a-menu @click="handleMenuAction">
+                  <a-menu-item key="profile">
+                    <UserOutlined />
+                    个人中心
+                  </a-menu-item>
+                  <a-menu-item v-if="userStore.isAdmin" key="admin">
+                    <SettingOutlined />
+                    用户管理
+                  </a-menu-item>
+                  <a-menu-divider />
+                  <a-menu-item key="logout" danger>
+                    <LogoutOutlined />
+                    退出登录
+                  </a-menu-item>
+                </a-menu>
+              </template>
+            </a-dropdown>
+          </template>
+          <a-button v-else type="primary" @click="handleLogin">登录</a-button>
         </div>
       </a-col>
     </a-row>
@@ -30,9 +58,18 @@
 <script setup lang="ts">
 import { h, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { message } from 'ant-design-vue'
 import type { MenuProps } from 'ant-design-vue'
+import {
+  DownOutlined,
+  UserOutlined,
+  SettingOutlined,
+  LogoutOutlined,
+} from '@ant-design/icons-vue'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 const selectedKeys = ref<string[]>([router.currentRoute.value.path])
 
@@ -62,6 +99,24 @@ const handleMenuClick: MenuProps['onClick'] = (e) => {
   const key = e.key as string
   if (key.startsWith('/')) {
     void router.push(key)
+  }
+}
+
+function handleLogin() {
+  router.push('/user/login')
+}
+
+async function handleMenuAction({ key }: { key: string }) {
+  if (key === 'profile') {
+    await router.push('/user/profile')
+  } else if (key === 'admin') {
+    await router.push('/admin/user')
+  } else if (key === 'logout') {
+    const res = await userStore.logout()
+    if (res.code === 0) {
+      message.success('已退出登录')
+      await router.push('/')
+    }
   }
 }
 </script>
@@ -107,5 +162,21 @@ const handleMenuClick: MenuProps['onClick'] = (e) => {
 
 .user-login-status {
   margin-left: 16px;
+}
+
+.user-dropdown-trigger {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.user-dropdown-trigger:hover {
+  background: #f5f5f5;
+}
+
+.user-name {
+  font-size: 14px;
+  color: #333;
 }
 </style>
