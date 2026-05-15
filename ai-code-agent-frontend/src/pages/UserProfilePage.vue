@@ -110,7 +110,7 @@ async function handleLogout() {
   const res = await userStore.logout()
   if (res.code === 0) {
     message.success('已退出登录')
-    await router.push('/')
+    window.location.href = '/'
   }
 }
 </script>

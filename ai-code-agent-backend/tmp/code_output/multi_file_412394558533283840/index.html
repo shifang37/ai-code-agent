@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
+  <title>在线商城 · 极简精选</title>
+  <!-- 引用外部样式表 -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- 页面头部：导航与品牌标识 -->
+  <header class="site-header">
+    <div class="container header-flex">
+      <div class="logo">
+        <h1>⛩️ 简选商店</h1>
+      </div>
+      <nav class="primary-nav" aria-label="主导航">
+        <ul class="nav-list">
+          <li><a href="#" class="nav-link active" data-category="all">全部</a></li>
+          <li><a href="#" class="nav-link" data-category="电子产品">电子产品</a></li>
+          <li><a href="#" class="nav-link" data-category="家居">家居</a></li>
+          <li><a href="#" class="nav-link" data-category="服饰">服饰</a></li>
+        </ul>
+      </nav>
+      <div class="cart-icon" id="cartToggle" role="button" tabindex="0" aria-label="打开购物车">
+        <span class="cart-badge" id="cartBadge">0</span>
+        🛒
+      </div>
+    </div>
+  </header>
+
+  <!-- 主内容区域：商品网格 -->
+  <main class="container main-content">
+    <section class="products-section" aria-label="商品列表">
+      <div class="products-grid" id="productGrid">
+        <!-- 商品卡片将由 JavaScript 动态生成 -->
+      </div>
+    </section>
+  </main>
+
+  <!-- 购物车侧边栏 (抽屉) -->
+  <aside class="cart-sidebar" id="cartSidebar" aria-label="购物车侧栏">
+    <div class="cart-header">
+      <h3>🛍️ 购物车</h3>
+      <button class="close-cart" id="closeCart" aria-label="关闭购物车">&times;</button>
+    </div>
+    <div class="cart-items" id="cartItemsContainer">
+      <p class="empty-cart-msg">购物车是空的，快去逛逛吧</p>
+    </div>
+    <div class="cart-footer">
+      <div class="cart-total">合计: <span id="cartTotalPrice">¥0</span></div>
+      <button class="btn-checkout" id="checkoutBtn">结算 (0)</button>
+    </div>
+  </aside>
+  <!-- 遮罩层 -->
+  <div class="overlay" id="overlay" aria-hidden="true"></div>
+
+  <!-- 引用外部 JavaScript -->
+  <script src="script.js"></script>
+</body>
+</html>

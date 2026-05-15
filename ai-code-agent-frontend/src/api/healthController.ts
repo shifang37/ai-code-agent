@@ -1,8 +1,11 @@
-/**
- * 健康检查。后端启动并暴露 OpenAPI 文档后，可执行 `npm run openapi2ts` 用工具重新生成接口代码。
- */
+// @ts-ignore
+/* eslint-disable */
 import request from '@/request'
 
-export function healthCheck() {
-  return request.get<string>('/health/')
+/** 此处后端没有提供注释 GET /health/ */
+export async function healthCheck(options?: { [key: string]: any }) {
+  return request<API.BaseResponseString>('/health/', {
+    method: 'GET',
+    ...(options || {}),
+  })
 }

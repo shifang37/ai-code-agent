@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
+    <title>悦选在线 · 精品商城</title>
+    <!-- 样式表 -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 页眉 · 导航 & 品牌 -->
+    <header class="site-header">
+        <div class="container header-flex">
+            <div class="logo">
+                <h1>🛍️ 悦选</h1>
+                <p class="subtitle">在线精品 · 品质生活</p>
+            </div>
+            <nav class="primary-nav" aria-label="主导航">
+                <ul class="nav-list">
+                    <li><a href="#home" class="nav-link active">首页</a></li>
+                    <li><a href="#products" class="nav-link">商品</a></li>
+                    <li><a href="#about" class="nav-link">关于</a></li>
+                    <li><a href="#contact" class="nav-link">联系</a></li>
+                </ul>
+                <!-- 移动端汉堡菜单 (CSS驱动) -->
+                <div class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="菜单" role="button" tabindex="0">
+                    <span class="bar"></span>
+                    <span class="bar"></span>
+                    <span class="bar"></span>
+                </div>
+            </nav>
+            <!-- 购物车图标 -->
+            <div class="cart-icon-wrapper" id="cartIconWrapper" role="button" tabindex="0" aria-label="打开购物车">
+                <span class="cart-icon">🛒</span>
+                <span class="cart-count-badge" id="cartCountBadge">0</span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- 英雄区 / 轮播展示 (静态占位) -->
+        <section id="home" class="hero-section">
+            <div class="container hero-grid">
+                <div class="hero-text">
+                    <h2>夏日甄选 · 全场包邮</h2>
+                    <p>精选好物，为生活增添一份质感。新用户首单立减 20 元。</p>
+                    <a href="#products" class="btn btn-primary">立即选购</a>
+                </div>
+                <div class="hero-image">
+                    <img src="https://picsum.photos/800/500?random=1" alt="商城精选商品展示" loading="lazy">
+                </div>
+            </div>
+        </section>
+
+        <!-- 商品列表区 (在线商城核心) -->
+        <section id="products" class="products-section">
+            <div class="container">
+                <header class="section-header">
+                    <h2>热门商品</h2>
+                    <p>每一件都经过精心挑选</p>
+                </header>
+                <div class="products-grid" id="productsGrid">
+                    <!-- 商品卡片由 JavaScript 动态生成 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 关于 & 联系 (简洁占位) -->
+        <section id="about" class="about-section">
+            <div class="container">
+                <h2>关于悦选</h2>
+                <p>悦选在线商城致力于为用户提供设计感与实用性兼具的生活好物。我们与全球优质品牌合作，从家居好物到数码配件，每一件商品都经过严格筛选。我们相信，好的设计能点亮日常。</p>
+            </div>
+        </section>
+
+        <section id="contact" class="contact-section">
+            <div class="container">
+                <h2>联系我们</h2>
+                <p>📧 service@yuexuan.shop  |  📞 400-888-9999  |  在线时间 9:00-21:00</p>
+                <p><small>地址：上海市浦东新区悦选大厦 1 座 20 层</small></p>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="site-footer">
+        <div class="container footer-flex">
+            <p>&copy; 2025 悦选在线 · 悦享生活</p>
+            <ul class="footer-links">
+                <li><a href="#">隐私条款</a></li>
+                <li><a href="#">服务协议</a></li>
+            </ul>
+        </div>
+    </footer>
+
+    <!-- 购物车侧栏 (抽屉) -->
+    <aside id="cartSidebar" class="cart-sidebar" aria-label="购物车面板">
+        <div class="cart-sidebar-header">
+            <h2>我的购物车 🛒</h2>
+            <button id="closeCartBtn" class="btn-close" aria-label="关闭购物车">&times;</button>
+        </div>
+        <div class="cart-items" id="cartItemsContainer">
+            <!-- 动态购物车项目列表 -->
+            <p class="cart-empty-message">购物车还是空的，快去逛逛吧！</p>
+        </div>
+        <div class="cart-footer">
+            <div class="cart-total">
+                <span>总计：</span>
+                <span id="cartTotalPrice">¥0.00</span>
+            </div>
+            <button class="btn btn-primary btn-checkout" id="checkoutBtn">去结算 (模拟)</button>
+        </div>
+    </aside>
+    <!-- 遮罩层 -->
+    <div id="overlay" class="overlay"></div>
+
+    <!-- JavaScript 文件 -->
+    <script src="script.js"></script>
+</body>
+</html>

@@ -156,13 +156,12 @@
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { UserOutlined, LockOutlined, SafetyOutlined } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
 import type { Rule } from 'ant-design-vue/es/form'
 
-const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const activeTab = ref<string>('login')
@@ -217,7 +216,7 @@ async function handleLogin() {
     if (res.code === 0) {
       message.success('登录成功')
       const redirect = (route.query.redirect as string) || '/'
-      await router.push(redirect)
+      window.location.href = redirect
     } else {
       message.error(res.message || '登录失败')
     }

@@ -34,12 +34,30 @@ const router = createRouter({
       component: () => import('@/pages/AdminUserPage.vue'),
       meta: { requiresAuth: true, requiresAdmin: true },
     },
+    {
+      path: '/admin/app',
+      name: 'adminApp',
+      component: () => import('@/pages/AdminAppPage.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/app/chat/:appId',
+      name: 'appChat',
+      component: () => import('@/pages/ChatPage.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/app/edit/:id',
+      name: 'appEdit',
+      component: () => import('@/pages/AppEditPage.vue'),
+      meta: { requiresAuth: true },
+    },
   ],
 })
 
 let storeInitialized = false
 
-router.beforeEach(async (to, _from, next) => {
+router.beforeEach(async (to, _from) => {
   const userStore = useUserStore()
 
   if (!storeInitialized) {
@@ -49,22 +67,17 @@ router.beforeEach(async (to, _from, next) => {
 
   if (to.meta.requiresAuth && !userStore.isLoggedIn) {
     message.warning('请先登录')
-    next({ name: 'login', query: { redirect: to.fullPath } })
-    return
+    return { name: 'login', query: { redirect: to.fullPath } }
   }
 
   if (to.meta.requiresAdmin && !userStore.isAdmin) {
     message.error('没有访问权限')
-    next({ name: 'home' })
-    return
+    return { name: 'home' }
   }
 
   if (to.meta.guest && userStore.isLoggedIn) {
-    next({ name: 'home' })
-    return
+    return { name: 'home' }
   }
-
-  next()
 })
 
 export default router

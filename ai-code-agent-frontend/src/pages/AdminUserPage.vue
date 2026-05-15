@@ -1,15 +1,13 @@
 <template>
   <div class="admin-page">
-    <div class="page-header">
-      <div>
-        <h2 class="page-title">用户管理</h2>
-        <p class="page-desc">管理系统中的所有用户，支持搜索、新增、编辑和删除操作</p>
-      </div>
-      <a-button type="primary" size="large" @click="openAddModal">
-        <template #icon><PlusOutlined /></template>
-        新增用户
-      </a-button>
-    </div>
+    <PageHeader title="用户管理" description="管理系统中的所有用户，支持搜索、新增、编辑和删除操作">
+      <template #extra>
+        <a-button type="primary" size="large" @click="openAddModal">
+          <template #icon><PlusOutlined /></template>
+          新增用户
+        </a-button>
+      </template>
+    </PageHeader>
 
     <!-- Search Form -->
     <a-card class="search-card">
@@ -151,8 +149,9 @@ import { message } from 'ant-design-vue'
 import type { TableColumnsType, TablePaginationConfig } from 'ant-design-vue'
 import type { FormInstance, Rule } from 'ant-design-vue/es/form'
 import { PlusOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue'
-import { listUserVOByPage, addUser, updateUser, deleteUser } from '@/api/userController'
+import { listUserVoByPage, addUser, updateUser, deleteUser } from '@/api/userController'
 import type { UserVO, UserQueryRequest, UserAddRequest, UserUpdateRequest } from '@/models'
+import PageHeader from '@/components/PageHeader.vue'
 import dayjs from 'dayjs'
 
 const loading = ref(false)
@@ -191,13 +190,13 @@ const pagination = reactive<TablePaginationConfig>({
 async function fetchData() {
   loading.value = true
   try {
-    const res = await listUserVOByPage({ ...queryParams, pageNum: currentPage.value, pageSize: pageSize.value })
-    if (res.data.code === 0) {
+    const res = await listUserVoByPage({ ...queryParams, pageNum: currentPage.value, pageSize: pageSize.value })
+    if (res.data.code === 0 && res.data.data) {
       const page = res.data.data
       tableData.value = page.records
-      total.value = page.totalRow
-      pagination.current = page.pageNumber
-      pagination.total = page.totalRow
+      total.value = Number(page.totalRow) || 0
+      pagination.current = Number(page.pageNumber) || 1
+      pagination.total = Number(page.totalRow) || 0
     } else {
       message.error(res.data.message || '获取用户列表失败')
     }
@@ -348,26 +347,6 @@ onMounted(() => {
 <style scoped>
 .admin-page {
   margin: -24px;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 24px 32px 0;
-}
-
-.page-title {
-  margin: 0 0 4px;
-  font-size: 22px;
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.page-desc {
-  margin: 0;
-  font-size: 13px;
-  color: #999;
 }
 
 .search-card {

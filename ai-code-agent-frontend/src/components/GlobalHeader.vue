@@ -39,6 +39,10 @@
                     <SettingOutlined />
                     用户管理
                   </a-menu-item>
+                  <a-menu-item v-if="userStore.isAdmin" key="adminApp">
+                    <AppstoreOutlined />
+                    应用管理
+                  </a-menu-item>
                   <a-menu-divider />
                   <a-menu-item key="logout" danger>
                     <LogoutOutlined />
@@ -65,6 +69,7 @@ import {
   UserOutlined,
   SettingOutlined,
   LogoutOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
 
@@ -111,11 +116,13 @@ async function handleMenuAction({ key }: { key: string }) {
     await router.push('/user/profile')
   } else if (key === 'admin') {
     await router.push('/admin/user')
+  } else if (key === 'adminApp') {
+    await router.push('/admin/app')
   } else if (key === 'logout') {
     const res = await userStore.logout()
     if (res.code === 0) {
       message.success('已退出登录')
-      await router.push('/')
+      window.location.href = '/'
     }
   }
 }

@@ -114,3 +114,79 @@ export const UserRoleText: Record<string, string> = {
   [UserRoleEnum.USER]: '用户',
   [UserRoleEnum.ADMIN]: '管理员',
 }
+
+// ========== App Entity ==========
+
+export interface App {
+  id: string
+  appName: string
+  cover: string
+  initPrompt: string
+  codeGenType: string
+  deployKey: string
+  deployedTime: string
+  priority: number
+  userId: string
+  createTime: string
+  updateTime: string
+  isDelete: number
+}
+
+// ========== App VO ==========
+
+export interface AppVO {
+  id: string
+  appName: string
+  cover: string
+  initPrompt: string
+  codeGenType: string
+  deployKey: string
+  deployedTime: string
+  priority: number
+  userId: string
+  createTime: string
+  updateTime: string
+  user?: UserVO
+}
+
+// ========== App Request DTOs ==========
+
+export interface AppAddRequest {
+  initPrompt: string
+}
+
+export interface AppUpdateRequest {
+  id: string
+  appName: string
+}
+
+export interface AppAdminUpdateRequest {
+  id: string
+  appName?: string
+  cover?: string
+  priority?: number
+}
+
+export interface AppDeployRequest {
+  appId: string
+}
+
+export interface AppQueryRequest extends PageRequest {
+  id?: string
+  appName?: string
+  cover?: string
+  initPrompt?: string
+  codeGenType?: string
+  deployKey?: string
+  priority?: number
+  userId?: string
+}
+
+// ========== Constants ==========
+
+export const CodeGenTypeEnum = {
+  VUE: 'vue',
+  REACT: 'react',
+} as const
+
+export type CodeGenType = (typeof CodeGenTypeEnum)[keyof typeof CodeGenTypeEnum]
