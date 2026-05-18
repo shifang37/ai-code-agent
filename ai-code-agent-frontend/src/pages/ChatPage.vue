@@ -27,13 +27,35 @@
     <div class="chat-main">
       <div class="chat-left">
         <div class="chat-messages" ref="messagesRef">
-          <div v-if="messages.length === 0 && !streaming" class="chat-empty">
+          <div v-if="historyMessages.length === 0 && messages.length === 0 && !streaming" class="chat-empty">
             <a-spin />
             <p>正在初始化对话...</p>
           </div>
+          <div v-if="hasMoreHistory" class="load-more-area">
+            <a-button :loading="loadingHistory" @click="loadChatHistory">
+              加载更多历史消息
+            </a-button>
+          </div>
+          <div
+            v-for="(msg, idx) in historyMessages"
+            :key="'hist-' + idx"
+            :class="['chat-message', msg.role === 'user' ? 'chat-message-user' : 'chat-message-ai']"
+          >
+            <div class="chat-message-avatar">
+              <a-avatar v-if="msg.role === 'user'" :size="32">
+                {{ (userStore.loginUser?.userName || '用')[0] }}
+              </a-avatar>
+              <a-avatar v-else :size="32" style="background: #1677ff">
+                <RobotOutlined />
+              </a-avatar>
+            </div>
+            <div class="chat-message-bubble">
+              <MarkdownRenderer :content="msg.content" />
+            </div>
+          </div>
           <div
             v-for="(msg, idx) in messages"
-            :key="idx"
+            :key="'msg-' + idx"
             :class="['chat-message', msg.role === 'user' ? 'chat-message-user' : 'chat-message-ai']"
           >
             <div class="chat-message-avatar">
@@ -110,6 +132,7 @@ import {
   AppstoreOutlined,
 } from '@ant-design/icons-vue'
 import { getAppVoById, deployApp } from '@/api/appController'
+import { listAppChatHistory } from '@/api/chatHistoryController'
 import type { AppVO } from '@/models'
 import { useUserStore } from '@/stores/user'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
@@ -131,6 +154,10 @@ const previewUrl = ref('')
 const deploying = ref(false)
 
 const messages = ref<ChatMessage[]>([])
+const historyMessages = ref<ChatMessage[]>([])
+const hasMoreHistory = ref(false)
+const loadingHistory = ref(false)
+const lastCreateTime = ref<string | undefined>(undefined)
 const inputText = ref('')
 const streaming = ref(false)
 const streamContent = ref('')
@@ -138,14 +165,63 @@ const messagesRef = ref<HTMLElement>()
 
 let abortController: AbortController | null = null
 
+async function loadChatHistory() {
+  loadingHistory.value = true
+  try {
+    const params: API.listAppChatHistoryParams = {
+      appId: Number(appId),
+      pageSize: 10,
+    }
+    if (lastCreateTime.value) {
+      params.lastCreateTime = lastCreateTime.value
+    }
+    const res = await listAppChatHistory(params)
+    if (res.data.code === 0 && res.data.data) {
+      const page = res.data.data
+      const records = page.records || []
+      if (records.length > 0) {
+        // API returns DESC order, reverse to ASC for display
+        const newMessages: ChatMessage[] = [...records]
+          .reverse()
+          .map((r: API.ChatHistory) => ({
+            role: (r.messageType === 'user' ? 'user' : 'ai') as 'user' | 'ai',
+            content: r.message || '',
+          }))
+        historyMessages.value = [...newMessages, ...historyMessages.value]
+        // Set cursor to the oldest record's createTime for next page
+        lastCreateTime.value = records[records.length - 1].createTime
+      }
+      const totalRow = Number(page.totalRow) || 0
+      hasMoreHistory.value = historyMessages.value.length < totalRow
+    }
+  } catch {
+    message.error('加载对话历史失败')
+  } finally {
+    loadingHistory.value = false
+  }
+}
+
 onMounted(async () => {
   try {
     const res = await getAppVoById({ id: appId } as unknown as API.getAppVOByIdParams)
     if (res.data.code === 0) {
       appInfo.value = res.data.data as unknown as AppVO
-      const prompt = appInfo.value?.initPrompt
-      if (prompt) {
-        await sendMessage(prompt)
+
+      await loadChatHistory()
+
+      // Show preview if app has at least 2 chat history records
+      if (historyMessages.value.length >= 2 && appInfo.value?.codeGenType) {
+        previewReady.value = true
+        previewUrl.value = `http://localhost:8123/api/static/${appInfo.value.codeGenType}_${appId}/`
+      }
+
+      // Auto-send initPrompt only if own app and no chat history
+      const isOwnApp = String(appInfo.value?.userId) === String(userStore.loginUser?.id)
+      if (isOwnApp && historyMessages.value.length === 0) {
+        const prompt = appInfo.value?.initPrompt
+        if (prompt) {
+          await sendMessage(prompt)
+        }
       }
     } else {
       message.error('获取应用信息失败')
@@ -349,6 +425,11 @@ watch(streamContent, () => {
   justify-content: center;
   height: 100%;
   color: #999;
+}
+
+.load-more-area {
+  text-align: center;
+  padding: 12px 0;
 }
 
 .chat-message {

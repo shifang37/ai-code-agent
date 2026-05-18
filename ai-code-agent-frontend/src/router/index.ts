@@ -41,6 +41,12 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresAdmin: true },
     },
     {
+      path: '/admin/chatHistory',
+      name: 'adminChatHistory',
+      component: () => import('@/pages/AdminChatHistoryPage.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
+    {
       path: '/app/chat/:appId',
       name: 'appChat',
       component: () => import('@/pages/ChatPage.vue'),
