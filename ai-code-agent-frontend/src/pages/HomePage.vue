@@ -110,8 +110,8 @@ import {
   EditOutlined,
   DeleteOutlined,
 } from '@ant-design/icons-vue'
-import { addApp, listMyAppVoByPage, listGoodAppVoByPage, deleteApp } from '@/api/appController'
-import type { AppVO, AppQueryRequest } from '@/models'
+import { addApp, listMyAppVoByPage, listGoodAppVoByPage, deleteApp, getAppVoById } from '@/api/appController'
+import { CodeGenTypeText, type AppVO, type AppQueryRequest } from '@/models'
 import { useUserStore } from '@/stores/user'
 import AppCard from '@/components/AppCard.vue'
 
@@ -149,7 +149,18 @@ async function handleCreateApp() {
   try {
     const res = await addApp({ initPrompt: text })
     if (res.data.code === 0 && res.data.data != null) {
-      router.push(`/app/chat/${res.data.data}`)
+      const appId = res.data.data
+      try {
+        const detail = await getAppVoById({ id: appId })
+        const codeGenType = detail.data?.data?.codeGenType
+        if (codeGenType) {
+          const typeText = CodeGenTypeText[codeGenType] ?? codeGenType
+          message.success(`AI 已为你选择「${typeText}」模式`)
+        }
+      } catch {
+        // 取详情失败不阻塞跳转
+      }
+      router.push(`/app/chat/${appId}`)
     } else {
       message.error(res.data.message || '创建应用失败')
     }
@@ -228,7 +239,7 @@ function goEdit(app: AppVO) {
 
 async function handleMyDelete(id: string) {
   try {
-    const res = await deleteApp({ id: id as unknown as number })
+    const res = await deleteApp({ id })
     if (res.data.code === 0) {
       message.success('删除成功')
       fetchMyApps()

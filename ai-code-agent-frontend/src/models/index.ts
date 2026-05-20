@@ -185,8 +185,15 @@ export interface AppQueryRequest extends PageRequest {
 // ========== Constants ==========
 
 export const CodeGenTypeEnum = {
-  VUE: 'vue',
-  REACT: 'react',
+  HTML: 'html',
+  MULTI_FILE: 'multi_file',
+  VUE_PROJECT: 'vue_project',
 } as const
 
 export type CodeGenType = (typeof CodeGenTypeEnum)[keyof typeof CodeGenTypeEnum]
+
+export const CodeGenTypeText: Record<string, string> = {
+  [CodeGenTypeEnum.HTML]: '原生 HTML',
+  [CodeGenTypeEnum.MULTI_FILE]: '多文件',
+  [CodeGenTypeEnum.VUE_PROJECT]: 'Vue 工程',
+}

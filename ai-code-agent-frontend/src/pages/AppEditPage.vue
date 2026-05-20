@@ -97,9 +97,9 @@ onMounted(async () => {
   try {
     let res
     if (userStore.isAdmin) {
-      res = await getAppVoByIdByAdmin({ id: appId } as unknown as API.getAppVOByIdByAdminParams)
+      res = await getAppVoByIdByAdmin({ id: appId })
     } else {
-      res = await getAppVoById({ id: appId } as unknown as API.getAppVOByIdParams)
+      res = await getAppVoById({ id: appId })
     }
     if (res.data.code === 0 && res.data.data) {
       const app = res.data.data
@@ -125,14 +125,14 @@ async function handleSubmit() {
     let res
     if (userStore.isAdmin) {
       res = await updateAppByAdmin({
-        id: formData.id as unknown as number,
+        id: formData.id,
         appName: formData.appName,
         cover: formData.cover || undefined,
         priority: formData.priority,
       })
     } else {
       res = await updateApp({
-        id: formData.id as unknown as number,
+        id: formData.id,
         appName: formData.appName,
       })
     }

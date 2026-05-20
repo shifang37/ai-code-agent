@@ -6,8 +6,19 @@
           <template #icon><ArrowLeftOutlined /></template>
         </a-button>
         <h2 class="chat-app-name">{{ appInfo?.appName || '加载中...' }}</h2>
+        <a-tag v-if="codeGenTypeLabel" color="blue" class="chat-codegen-tag">
+          {{ codeGenTypeLabel }}
+        </a-tag>
       </div>
       <div class="chat-topbar-right">
+        <a-button
+          v-if="canDownload"
+          style="margin-right: 8px"
+          @click="handleDownload"
+        >
+          <template #icon><DownloadOutlined /></template>
+          下载代码
+        </a-button>
         <a-button
           v-if="previewReady"
           type="primary"
@@ -83,23 +94,52 @@
           </div>
         </div>
 
-        <div class="chat-input-area">
-          <a-textarea
-            v-model:value="inputText"
-            placeholder="输入你的需求，让 AI 帮你调整应用..."
-            :rows="2"
-            :disabled="streaming || !initialized"
-            @press-enter="handleSend"
-          />
-          <a-button
-            type="primary"
-            :loading="streaming"
-            :disabled="!inputText.trim() || streaming || !initialized"
-            @click="handleSend"
+        <div class="chat-input-wrapper">
+          <a-alert
+            v-if="selectedElement"
+            class="chat-selected-alert"
+            type="info"
+            show-icon
+            closable
+            @close="clearSelection"
           >
-            <template #icon><SendOutlined /></template>
-            发送
-          </a-button>
+            <template #message>
+              已选中元素：
+              <strong>{{ selectedElement.tagName }}</strong>
+              <span v-if="selectedElement.id"> #{{ selectedElement.id }}</span>
+              <span v-else-if="selectedElement.className"> .{{ selectedElement.className.split(' ')[0] }}</span>
+              <span v-if="selectedElement.textContent" class="chat-selected-text">
+                "{{ selectedElement.textContent }}"
+              </span>
+            </template>
+          </a-alert>
+          <div class="chat-input-area">
+            <a-tooltip :title="editMode ? '退出编辑模式' : '进入可视化编辑模式'">
+              <a-button
+                :type="editMode ? 'primary' : 'default'"
+                :disabled="!previewReady || streaming || !initialized"
+                @click="toggleEditMode"
+              >
+                <template #icon><EditOutlined /></template>
+              </a-button>
+            </a-tooltip>
+            <a-textarea
+              v-model:value="inputText"
+              placeholder="输入你的需求，让 AI 帮你调整应用..."
+              :rows="2"
+              :disabled="streaming || !initialized"
+              @press-enter="handleSend"
+            />
+            <a-button
+              type="primary"
+              :loading="streaming"
+              :disabled="!inputText.trim() || streaming || !initialized"
+              @click="handleSend"
+            >
+              <template #icon><SendOutlined /></template>
+              发送
+            </a-button>
+          </div>
         </div>
       </div>
 
@@ -110,9 +150,12 @@
         </div>
         <iframe
           v-else
+          ref="previewIframeRef"
           :src="previewUrl"
           class="preview-iframe"
+          :class="{ 'preview-iframe-edit': editMode }"
           sandbox="allow-scripts allow-same-origin"
+          @load="handleIframeLoad"
         />
       </div>
     </div>
@@ -120,7 +163,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
@@ -130,12 +173,15 @@ import {
   RobotOutlined,
   SendOutlined,
   AppstoreOutlined,
+  DownloadOutlined,
+  EditOutlined,
 } from '@ant-design/icons-vue'
 import { getAppVoById, deployApp } from '@/api/appController'
 import { listAppChatHistory } from '@/api/chatHistoryController'
-import type { AppVO } from '@/models'
+import { CodeGenTypeEnum, CodeGenTypeText, type AppVO } from '@/models'
 import { useUserStore } from '@/stores/user'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import { useVisualEditor, formatElementForPrompt } from '@/utils/visualEditor'
 
 interface ChatMessage {
   role: 'user' | 'ai'
@@ -162,14 +208,58 @@ const inputText = ref('')
 const streaming = ref(false)
 const streamContent = ref('')
 const messagesRef = ref<HTMLElement>()
+const previewIframeRef = ref<HTMLIFrameElement>()
+
+const {
+  editMode,
+  selectedElement,
+  enable: enableEditMode,
+  disable: disableEditMode,
+  clearSelection,
+  dispose: disposeVisualEditor,
+} = useVisualEditor(previewIframeRef)
+
+function toggleEditMode() {
+  if (editMode.value) {
+    disableEditMode()
+  } else {
+    enableEditMode()
+  }
+}
+
+function handleIframeLoad() {
+  if (editMode.value) {
+    enableEditMode()
+  }
+}
 
 let abortController: AbortController | null = null
+
+const codeGenTypeLabel = computed(() => {
+  const type = appInfo.value?.codeGenType
+  return type ? CodeGenTypeText[type] : ''
+})
+
+const canDownload = computed(() => {
+  if (!appInfo.value || !userStore.loginUser) return false
+  return String(appInfo.value.userId) === String(userStore.loginUser.id)
+})
+
+function handleDownload() {
+  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8123/api'
+  const a = document.createElement('a')
+  a.href = `${baseURL}/app/download/${appId}`
+  a.target = '_blank'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+}
 
 async function loadChatHistory() {
   loadingHistory.value = true
   try {
     const params: API.listAppChatHistoryParams = {
-      appId: Number(appId),
+      appId: appId,
       pageSize: 10,
     }
     if (lastCreateTime.value) {
@@ -203,7 +293,7 @@ async function loadChatHistory() {
 
 onMounted(async () => {
   try {
-    const res = await getAppVoById({ id: appId } as unknown as API.getAppVOByIdParams)
+    const res = await getAppVoById({ id: appId })
     if (res.data.code === 0) {
       appInfo.value = res.data.data as unknown as AppVO
 
@@ -212,7 +302,7 @@ onMounted(async () => {
       // Show preview if app has at least 2 chat history records
       if (historyMessages.value.length >= 2 && appInfo.value?.codeGenType) {
         previewReady.value = true
-        previewUrl.value = `http://localhost:8123/api/static/${appInfo.value.codeGenType}_${appId}/`
+        previewUrl.value = `/api/static/${appInfo.value.codeGenType}_${appId}/`
       }
 
       // Auto-send initPrompt only if own app and no chat history
@@ -239,6 +329,7 @@ onUnmounted(() => {
   if (abortController) {
     abortController.abort()
   }
+  disposeVisualEditor()
 })
 
 function scrollToBottom() {
@@ -253,7 +344,16 @@ async function handleSend() {
   const text = inputText.value.trim()
   if (!text || streaming.value) return
   inputText.value = ''
-  await sendMessage(text)
+  let finalText = text
+  if (selectedElement.value) {
+    finalText = `${text}\n\n${formatElementForPrompt(selectedElement.value)}`
+  }
+  if (editMode.value) {
+    disableEditMode()
+  } else {
+    clearSelection()
+  }
+  await sendMessage(finalText)
 }
 
 async function sendMessage(text: string) {
@@ -327,7 +427,7 @@ async function sendMessage(text: string) {
 
     if (appInfo.value?.codeGenType) {
       previewReady.value = true
-      previewUrl.value = `http://localhost:8123/api/static/${appInfo.value.codeGenType}_${appId}/`
+      previewUrl.value = `/api/static/${appInfo.value.codeGenType}_${appId}/`
     }
 
     scrollToBottom()
@@ -336,8 +436,16 @@ async function sendMessage(text: string) {
 
 async function handleDeploy() {
   deploying.value = true
+  const isVueProject = appInfo.value?.codeGenType === CodeGenTypeEnum.VUE_PROJECT
+  if (isVueProject) {
+    message.loading({
+      content: 'Vue 工程构建中，可能需要 30 秒以上，请耐心等待...',
+      key: 'deploy-loading',
+      duration: 0,
+    })
+  }
   try {
-    const res = await deployApp({ appId } as unknown as API.AppDeployRequest)
+    const res = await deployApp({ appId })
     if (res.data.code === 0) {
       message.success(`部署成功！访问地址：${res.data.data}`)
     } else {
@@ -346,6 +454,9 @@ async function handleDeploy() {
   } catch {
     message.error('部署失败')
   } finally {
+    if (isVueProject) {
+      message.destroy('deploy-loading')
+    }
     deploying.value = false
   }
 }
@@ -390,6 +501,10 @@ watch(streamContent, () => {
   font-size: 16px;
   font-weight: 600;
   color: #1a1a1a;
+}
+
+.chat-codegen-tag {
+  margin-left: 4px;
 }
 
 .chat-topbar-right {
@@ -474,18 +589,36 @@ watch(streamContent, () => {
   50% { opacity: 0; }
 }
 
+.chat-input-wrapper {
+  background: #fff;
+  border-top: 1px solid #f0f0f0;
+}
+
+.chat-selected-alert {
+  margin: 8px 16px 0;
+}
+
+.chat-selected-text {
+  margin-left: 8px;
+  color: #666;
+  font-style: italic;
+}
+
 .chat-input-area {
   display: flex;
   gap: 12px;
   padding: 12px 16px;
-  background: #fff;
-  border-top: 1px solid #f0f0f0;
   align-items: flex-end;
 }
 
 .chat-input-area :deep(.ant-btn) {
   flex-shrink: 0;
   height: 40px;
+}
+
+.preview-iframe-edit {
+  outline: 2px solid #1677ff;
+  outline-offset: -2px;
 }
 
 .chat-right {

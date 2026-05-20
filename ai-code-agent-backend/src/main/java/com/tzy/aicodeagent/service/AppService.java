@@ -2,6 +2,7 @@ package com.tzy.aicodeagent.service;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
+import com.tzy.aicodeagent.model.dto.app.AppAddRequest;
 import com.tzy.aicodeagent.model.dto.app.AppQueryRequest;
 import com.tzy.aicodeagent.model.entity.App;
 import com.tzy.aicodeagent.model.entity.User;
@@ -47,4 +48,20 @@ public interface AppService extends IService<App> {
      * @return
      */
     String deployApp(Long appId, User loginUser);
+
+    /**
+     * 异步生成应用截图并更新封面
+     *
+     * @param appId  应用ID
+     * @param appUrl 应用访问URL
+     */
+    void generateAppScreenshotAsync(Long appId, String appUrl);
+
+    /**
+     * 创建应用
+     * @param appAddRequest
+     * @param loginUser
+     * @return
+     */
+    Long createApp(AppAddRequest appAddRequest, User loginUser);
 }

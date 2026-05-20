@@ -5,6 +5,9 @@
       <div v-else class="app-card-cover-placeholder">
         <AppstoreOutlined />
       </div>
+      <a-tag v-if="codeGenTypeLabel" color="blue" class="app-card-type-tag">
+        {{ codeGenTypeLabel }}
+      </a-tag>
       <div v-if="showActions" class="app-card-actions" @click.stop>
         <slot name="actions" :app="app" />
       </div>
@@ -17,10 +20,11 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { AppstoreOutlined } from '@ant-design/icons-vue'
-import type { AppVO } from '@/models'
+import { CodeGenTypeText, type AppVO } from '@/models'
 
-defineProps<{
+const props = defineProps<{
   app: AppVO
   showActions?: boolean
 }>()
@@ -28,6 +32,11 @@ defineProps<{
 defineEmits<{
   click: [app: AppVO]
 }>()
+
+const codeGenTypeLabel = computed(() => {
+  const type = props.app?.codeGenType
+  return type ? CodeGenTypeText[type] : ''
+})
 </script>
 
 <style scoped>
@@ -77,6 +86,14 @@ defineEmits<{
   background: rgba(255, 255, 255, 0.9);
   border-radius: 6px;
   padding: 2px;
+}
+
+.app-card-type-tag {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  margin: 0;
+  font-size: 12px;
 }
 
 .app-card-cover:hover .app-card-actions {

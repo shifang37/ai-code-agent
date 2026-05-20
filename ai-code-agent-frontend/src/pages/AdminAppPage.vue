@@ -49,6 +49,12 @@
             <a-avatar v-if="record.cover" :src="record.cover" shape="square" :size="48" />
             <AppstoreOutlined v-else style="font-size: 36px; color: #d9d9d9" />
           </template>
+          <template v-if="column.key === 'codeGenType'">
+            <a-tag v-if="record.codeGenType" color="blue">
+              {{ CodeGenTypeText[record.codeGenType] || record.codeGenType }}
+            </a-tag>
+            <span v-else>-</span>
+          </template>
           <template v-if="column.key === 'priority'">
             <a-tag :color="record.priority >= 99 ? 'gold' : 'default'">
               {{ record.priority >= 99 ? '精选' : record.priority }}
@@ -96,7 +102,7 @@ import {
   AppstoreOutlined,
 } from '@ant-design/icons-vue'
 import { listAppVoByPageByAdmin, deleteAppByAdmin, updateAppByAdmin } from '@/api/appController'
-import type { AppVO, AppQueryRequest } from '@/models'
+import { CodeGenTypeText, type AppVO, type AppQueryRequest } from '@/models'
 import PageHeader from '@/components/PageHeader.vue'
 import dayjs from 'dayjs'
 
@@ -186,7 +192,7 @@ function openEdit(record: AppVO) {
 async function handleFeature(record: AppVO) {
   try {
     const res = await updateAppByAdmin({
-      id: record.id as unknown as number,
+      id: record.id,
       priority: 99,
     })
     if (res.data.code === 0) {
@@ -202,7 +208,7 @@ async function handleFeature(record: AppVO) {
 
 async function handleDelete(id: string) {
   try {
-    const res = await deleteAppByAdmin({ id: id as unknown as number })
+    const res = await deleteAppByAdmin({ id })
     if (res.data.code === 0) {
       message.success('删除成功')
       fetchData()
