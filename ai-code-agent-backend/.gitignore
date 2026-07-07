@@ -35,3 +35,4 @@ build/
 ### CUSTOM ###
 application-local.yml
 session.txt
+tmp/

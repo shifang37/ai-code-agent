@@ -25,6 +25,7 @@ import com.tzy.aicodeagent.service.UserService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
@@ -81,6 +82,7 @@ public class AppController {
      * @return 更新结果
      */
     @PostMapping("/update")
+    @CacheEvict(value = "good_app_page", allEntries = true)
     public BaseResponse<Boolean> updateApp(@RequestBody AppUpdateRequest appUpdateRequest, HttpServletRequest request) {
         if (appUpdateRequest == null || appUpdateRequest.getId() == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -112,6 +114,7 @@ public class AppController {
      * @return 删除结果
      */
     @PostMapping("/delete")
+    @CacheEvict(value = "good_app_page", allEntries = true)
     public BaseResponse<Boolean> deleteApp(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -180,7 +183,7 @@ public class AppController {
     @PostMapping("/good/list/page/vo")
     @Cacheable(
             value = "good_app_page",
-            key = "T(com.yupi.yuaicodemother.utils.CacheKeyUtils).generateKey(#appQueryRequest)",
+            key = "T(com.tzy.aicodeagent.utils.CacheKeyUtils).generateKey(#appQueryRequest)",
             condition = "#appQueryRequest.pageNum <= 10"
     )
     public BaseResponse<Page<AppVO>> listGoodAppVOByPage(@RequestBody AppQueryRequest appQueryRequest) {
@@ -209,6 +212,7 @@ public class AppController {
      */
     @PostMapping("/admin/delete")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @CacheEvict(value = "good_app_page", allEntries = true)
     public BaseResponse<Boolean> deleteAppByAdmin(@RequestBody DeleteRequest deleteRequest) {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -229,6 +233,7 @@ public class AppController {
      */
     @PostMapping("/admin/update")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @CacheEvict(value = "good_app_page", allEntries = true)
     public BaseResponse<Boolean> updateAppByAdmin(@RequestBody AppAdminUpdateRequest appAdminUpdateRequest) {
         if (appAdminUpdateRequest == null || appAdminUpdateRequest.getId() == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);

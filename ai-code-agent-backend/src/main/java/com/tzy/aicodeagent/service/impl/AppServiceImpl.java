@@ -31,6 +31,8 @@ import com.tzy.aicodeagent.service.ScreenshotService;
 import com.tzy.aicodeagent.service.UserService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
@@ -74,6 +76,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
 
     @Resource
     private AiCodeGenTypeRoutingServiceFactory aiCodeGenTypeRoutingServiceFactory;
+
+    @Resource
+    private CacheManager cacheManager;
 
     @Override
     public AppVO getAppVO(App app) {
@@ -161,7 +166,39 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         // 6. 调用 AI 生成代码（流式）
         Flux<String> codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
         // 7. 收集AI响应内容并在完成后记录到对话历史
-        return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, loginUser, codeGenTypeEnum);
+        Flux<String> resultFlux = streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, loginUser, codeGenTypeEnum);
+        // 8. 生成完成后自动截取应用主页作为封面概览图（上游完成回调已保存文件/构建项目，此处文件已就绪）
+        return resultFlux.doOnComplete(() -> generateAppCoverScreenshot(appId, codeGenTypeEnum));
+    }
+
+    /**
+     * 代码生成完成后，截取应用预览主页作为封面概览图（异步执行，失败不影响生成流程）
+     *
+     * @param appId       应用ID
+     * @param codeGenType 代码生成类型
+     */
+    private void generateAppCoverScreenshot(Long appId, CodeGenTypeEnum codeGenType) {
+        String sourceDirName = codeGenType.getValue() + "_" + appId;
+        String sourceDirPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + sourceDirName;
+        String previewUrl;
+        if (codeGenType == CodeGenTypeEnum.VUE_PROJECT) {
+            // Vue 工程生成完成时已同步构建，截取构建产物页面
+            File distIndex = new File(sourceDirPath + File.separator + "dist" + File.separator + "index.html");
+            if (!distIndex.exists()) {
+                log.warn("Vue 项目构建产物不存在，跳过封面截图，appId: {}", appId);
+                return;
+            }
+            previewUrl = String.format("%s/%s/dist/index.html", AppConstant.CODE_PREVIEW_HOST, sourceDirName);
+        } else {
+            File indexHtml = new File(sourceDirPath + File.separator + "index.html");
+            if (!indexHtml.exists()) {
+                log.warn("生成的页面文件不存在，跳过封面截图，appId: {}", appId);
+                return;
+            }
+            previewUrl = String.format("%s/%s/", AppConstant.CODE_PREVIEW_HOST, sourceDirName);
+        }
+        log.info("代码生成完成，开始截取应用封面，appId: {}, previewUrl: {}", appId, previewUrl);
+        generateAppScreenshotAsync(appId, previewUrl);
     }
 
     @Override
@@ -263,14 +300,25 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     public void generateAppScreenshotAsync(Long appId, String appUrl) {
         // 使用虚拟线程异步执行
         Thread.startVirtualThread(() -> {
-            // 调用截图服务生成截图并上传
-            String screenshotUrl = screenshotService.generateAndUploadScreenshot(appUrl);
-            // 更新应用封面字段
-            App updateApp = new App();
-            updateApp.setId(appId);
-            updateApp.setCover(screenshotUrl);
-            boolean updated = this.updateById(updateApp);
-            ThrowUtils.throwIf(!updated, ErrorCode.OPERATION_ERROR, "更新应用封面字段失败");
+            try {
+                // 调用截图服务生成截图并上传
+                String screenshotUrl = screenshotService.generateAndUploadScreenshot(appUrl);
+                // 更新应用封面字段
+                App updateApp = new App();
+                updateApp.setId(appId);
+                updateApp.setCover(screenshotUrl);
+                boolean updated = this.updateById(updateApp);
+                ThrowUtils.throwIf(!updated, ErrorCode.OPERATION_ERROR, "更新应用封面字段失败");
+                // 封面变化后清除精选应用列表缓存，避免列表继续展示旧封面
+                Cache goodAppCache = cacheManager.getCache("good_app_page");
+                if (goodAppCache != null) {
+                    goodAppCache.clear();
+                }
+                log.info("应用封面截图更新成功，appId: {}, cover: {}", appId, screenshotUrl);
+            } catch (Exception e) {
+                // 截图失败不影响主流程，仅记录日志
+                log.error("应用封面截图生成失败，appId: {}, url: {}", appId, appUrl, e);
+            }
         });
     }
 

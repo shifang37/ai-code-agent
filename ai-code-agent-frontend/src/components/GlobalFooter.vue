@@ -1,16 +1,7 @@
 <template>
   <a-layout-footer class="footer">
     <div class="footer-content">
-      <p class="copyright">
-        <a
-          href="https://www.codefather.cn"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="author-link"
-        >
-          编程导航原创项目 by 程序员鱼皮
-        </a>
-      </p>
+      <p class="copyright">© AI 零代码应用</p>
     </div>
   </a-layout-footer>
 </template>
@@ -33,9 +24,5 @@
   margin: 0;
   color: #666;
   font-size: 14px;
-}
-
-.author-link {
-  color: #1677ff;
 }
 </style>

@@ -60,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import type { MenuProps } from 'ant-design-vue'
@@ -92,11 +92,6 @@ const menuItems = ref<NonNullable<MenuProps['items']>>([
     key: '/about',
     label: '关于',
     title: '关于我们',
-  },
-  {
-    key: 'others',
-    label: h('a', { href: 'https://www.codefather.cn', target: '_blank' }, '编程导航'),
-    title: '编程导航',
   },
 ])
 
