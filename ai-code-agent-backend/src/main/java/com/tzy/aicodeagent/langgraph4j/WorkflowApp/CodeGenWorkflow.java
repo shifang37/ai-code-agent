@@ -1,6 +1,7 @@
 package com.tzy.aicodeagent.langgraph4j.WorkflowApp;
 
 import cn.hutool.json.JSONUtil;
+import com.tzy.aicodeagent.ai.guardrail.PromptSafetyInputGuardrail;
 import com.tzy.aicodeagent.exception.BusinessException;
 import com.tzy.aicodeagent.exception.ErrorCode;
 import com.tzy.aicodeagent.langgraph4j.model.QualityResult;
@@ -24,6 +25,11 @@ import static org.bsc.langgraph4j.action.AsyncEdgeAction.edge_async;
 
 @Slf4j
 public class CodeGenWorkflow {
+
+    /**
+     * 构建失败后自修复的最大重试次数
+     */
+    private static final int MAX_BUILD_RETRIES = 3;
 
     /**
      * 创建完整的工作流
@@ -54,7 +60,14 @@ public class CodeGenWorkflow {
                                     "fail", "code_generator"      // 质检失败，重新生成
                             ))
 
-                    .addEdge("project_builder", END)
+                    // 构建条件边：构建失败时携带编译报错回流到代码生成节点自修复
+                    .addConditionalEdges("project_builder",
+                            edge_async(this::routeAfterBuild),
+                            Map.of(
+                                    "success", END,               // 构建成功
+                                    "retry", "code_generator",    // 构建失败，回流定点修复
+                                    "abort", END                  // 重试耗尽，以源码目录结束
+                            ))
 
 
                     // 编译工作流
@@ -68,6 +81,7 @@ public class CodeGenWorkflow {
      * 执行工作流
      */
     public WorkflowContext executeWorkflow(String originalPrompt) {
+        validateUserPrompt(originalPrompt);
         CompiledGraph<MessagesState<String>> workflow = createWorkflow();
 
         // 初始化 WorkflowContext
@@ -97,6 +111,17 @@ public class CodeGenWorkflow {
         return finalContext;
     }
 
+    /**
+     * 系统边界的用户输入校验：护栏规则作用于用户原始输入，
+     * 工作流内部构造的增强提示词/修复提示词不再重复过输入护栏
+     */
+    private void validateUserPrompt(String originalPrompt) {
+        String violation = PromptSafetyInputGuardrail.findViolation(originalPrompt == null ? "" : originalPrompt);
+        if (violation != null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, violation);
+        }
+    }
+
     private String routeBuildOrSkip(MessagesState<String> state) {
         WorkflowContext context = WorkflowContext.getContext(state);
         CodeGenTypeEnum generationType = context.getGenerationType();
@@ -122,9 +147,29 @@ public class CodeGenWorkflow {
     }
 
     /**
+     * 构建后的路由：成功结束；失败且未达重试上限则回流到代码生成节点，
+     * 由真实编译器报错驱动定点修复（self-healing 闭环）
+     */
+    private String routeAfterBuild(MessagesState<String> state) {
+        WorkflowContext context = WorkflowContext.getContext(state);
+        if (context.getBuildErrorMessage() == null) {
+            log.info("项目构建成功，工作流结束");
+            return "success";
+        }
+        if (context.getBuildRetryCount() <= MAX_BUILD_RETRIES) {
+            log.warn("项目构建失败（第 {}/{} 次），携带编译报错回流修复",
+                    context.getBuildRetryCount(), MAX_BUILD_RETRIES);
+            return "retry";
+        }
+        log.error("项目构建失败且重试次数已耗尽（{} 次），以源码目录作为最终结果", MAX_BUILD_RETRIES);
+        return "abort";
+    }
+
+    /**
      * 执行工作流（Flux 流式输出版本）
      */
     public Flux<String> executeWorkflowWithFlux(String originalPrompt) {
+        validateUserPrompt(originalPrompt);
         return Flux.create(sink -> {
             Thread.startVirtualThread(() -> {
                 try {

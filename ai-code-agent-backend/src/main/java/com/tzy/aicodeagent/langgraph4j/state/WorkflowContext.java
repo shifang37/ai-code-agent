@@ -77,7 +77,17 @@ public class WorkflowContext implements Serializable {
      */
     private QualityResult qualityResult;
 
+    /**
+     * 构建失败的报错信息（npm install / build 的输出），非空表示上次构建失败，
+     * 由 CodeGeneratorNode 消费后置空
+     */
+    private String buildErrorMessage;
 
+    /**
+     * 构建失败累计次数，用于限制自修复重试上限
+     */
+    @Builder.Default
+    private int buildRetryCount = 0;
 
     @Serial
     private static final long serialVersionUID = 1L;

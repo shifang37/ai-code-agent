@@ -71,15 +71,26 @@ public class AiCodeGeneratorServiceFactory {
      * 根据 appId 和代码生成类型获取服务（带缓存）
      */
     public AiCodeGeneratorService getAiCodeGeneratorService(long appId, CodeGenTypeEnum codeGenType) {
-        String cacheKey = buildCacheKey(appId, codeGenType);
-        return serviceCache.get(cacheKey, key -> createAiCodeGeneratorService(appId, codeGenType));
+        return getAiCodeGeneratorService(appId, codeGenType, false);
+    }
+
+    /**
+     * 根据 appId 和代码生成类型获取服务（带缓存）
+     *
+     * @param internalPipeline true 表示调用方是内部管道（如工作流节点），消息为系统构造的
+     *                         增强提示词/修复提示词而非用户原始输入，不再套用户输入护栏
+     *                         （用户原始输入应在系统边界校验，见 CodeGenWorkflow 入口）
+     */
+    public AiCodeGeneratorService getAiCodeGeneratorService(long appId, CodeGenTypeEnum codeGenType, boolean internalPipeline) {
+        String cacheKey = buildCacheKey(appId, codeGenType) + (internalPipeline ? "_internal" : "");
+        return serviceCache.get(cacheKey, key -> createAiCodeGeneratorService(appId, codeGenType, internalPipeline));
     }
 
 
     /**
      * 创建新的 AI 服务实例
      */
-    private AiCodeGeneratorService createAiCodeGeneratorService(long appId, CodeGenTypeEnum codeGenType) {
+    private AiCodeGeneratorService createAiCodeGeneratorService(long appId, CodeGenTypeEnum codeGenType, boolean internalPipeline) {
         // 根据 appId 构建独立的对话记忆
         MessageWindowChatMemory chatMemory = MessageWindowChatMemory
                 .builder()
@@ -95,17 +106,20 @@ public class AiCodeGeneratorServiceFactory {
             case VUE_PROJECT -> {
                 // 使用多例模式的 StreamingChatModel 解决并发问题
                 StreamingChatModel reasoningStreamingChatModel = SpringContextUtil.getBean("reasoningStreamingChatModelPrototype", StreamingChatModel.class);
-                yield AiServices.builder(AiCodeGeneratorService.class)
+                var builder = AiServices.builder(AiCodeGeneratorService.class)
                         .streamingChatModel(reasoningStreamingChatModel)
                         .chatMemoryProvider(memoryId -> chatMemory)
                         .tools(toolManager.getAllTools())
                         .hallucinatedToolNameStrategy(toolExecutionRequest -> ToolExecutionResultMessage.from(
                                 toolExecutionRequest, "Error: there is no tool called " + toolExecutionRequest.name()
                         ))
-                        .inputGuardrails(new PromptSafetyInputGuardrail())
                         .outputGuardrails(new RetryOutputGuardrail())
-                        .maxSequentialToolsInvocations(20)
-                        .build();
+                        .maxSequentialToolsInvocations(20);
+                // 用户输入护栏只拦用户原始输入；内部管道的修复提示词（含编译报错+文件内容）必然超长，跳过
+                if (!internalPipeline) {
+                    builder.inputGuardrails(new PromptSafetyInputGuardrail());
+                }
+                yield builder.build();
             }
             case HTML, MULTI_FILE -> {
                 // 使用多例模式的 StreamingChatModel 解决并发问题

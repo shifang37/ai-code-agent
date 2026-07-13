@@ -27,28 +27,38 @@ public class PromptSafetyInputGuardrail implements InputGuardrail {
 
     @Override
     public InputGuardrailResult validate(UserMessage userMessage) {
-        String input = userMessage.singleText();
+        String violation = findViolation(userMessage.singleText());
+        return violation == null ? success() : fatal(violation);
+    }
+
+    /**
+     * 校验用户输入，供系统边界（如工作流入口）复用同一套规则。
+     * 只应作用于用户原始输入，内部管道消息（增强提示词、携带编译报错的修复提示词）不适用
+     *
+     * @return 违规原因，合法返回 null
+     */
+    public static String findViolation(String input) {
         // 检查输入长度
         if (input.length() > 1000) {
-            return fatal("输入内容过长，不要超过 1000 字");
+            return "输入内容过长，不要超过 1000 字";
         }
         // 检查是否为空
         if (input.trim().isEmpty()) {
-            return fatal("输入内容不能为空");
+            return "输入内容不能为空";
         }
         // 检查敏感词
         String lowerInput = input.toLowerCase();
         for (String sensitiveWord : SENSITIVE_WORDS) {
             if (lowerInput.contains(sensitiveWord.toLowerCase())) {
-                return fatal("输入包含不当内容，请修改后重试");
+                return "输入包含不当内容，请修改后重试";
             }
         }
         // 检查注入攻击模式
         for (Pattern pattern : INJECTION_PATTERNS) {
             if (pattern.matcher(input).find()) {
-                return fatal("检测到恶意输入，请求被拒绝");
+                return "检测到恶意输入，请求被拒绝";
             }
         }
-        return success();
+        return null;
     }
 }
