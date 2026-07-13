@@ -148,13 +148,14 @@
           <AppstoreOutlined style="font-size: 48px; color: #d9d9d9" />
           <p>AI 代码生成完成后将在此展示效果</p>
         </div>
+        <!-- 不加 allow-same-origin：预览页为 opaque origin，AI 生成的恶意脚本无法读取主站 Cookie 或以登录态调用主站 API -->
         <iframe
           v-else
           ref="previewIframeRef"
           :src="previewUrl"
           class="preview-iframe"
           :class="{ 'preview-iframe-edit': editMode }"
-          sandbox="allow-scripts allow-same-origin"
+          sandbox="allow-scripts allow-forms allow-popups allow-modals"
           @load="handleIframeLoad"
         />
       </div>

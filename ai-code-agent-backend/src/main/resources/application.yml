@@ -28,6 +28,10 @@ server:
     session:
       cookie:
         max-age: 2592000
+        # 防 XSS 窃取：JS 无法通过 document.cookie 读取会话
+        http-only: true
+        # 跨站请求（含沙箱预览页的 opaque origin 请求）不携带会话 Cookie
+        same-site: lax
 # springdoc-openapi
 springdoc:
   group-configs:

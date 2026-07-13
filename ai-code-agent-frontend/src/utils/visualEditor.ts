@@ -8,68 +8,6 @@ export interface SelectedElementInfo {
   selector: string
 }
 
-const HOVER_STYLE_ID = '__visual_editor_style__'
-const HOVER_CLASS = '__ve_hover__'
-const SELECTED_CLASS = '__ve_selected__'
-
-const STYLE_CONTENT = `
-  .${HOVER_CLASS} {
-    outline: 2px dashed #1677ff !important;
-    outline-offset: -2px !important;
-    cursor: pointer !important;
-  }
-  .${SELECTED_CLASS} {
-    outline: 3px solid #0958d9 !important;
-    outline-offset: -3px !important;
-    background-color: rgba(22, 119, 255, 0.08) !important;
-  }
-`
-
-function buildSelector(el: Element): string {
-  if (!el || el === el.ownerDocument?.documentElement) return 'html'
-  const parts: string[] = []
-  let cur: Element | null = el
-  let depth = 0
-  while (cur && cur.nodeType === 1 && depth < 5) {
-    let part = cur.tagName.toLowerCase()
-    if (cur.id) {
-      part += `#${cur.id}`
-      parts.unshift(part)
-      break
-    }
-    const cls = (cur.getAttribute('class') || '').trim().split(/\s+/).filter(Boolean)
-      .filter((c) => c !== HOVER_CLASS && c !== SELECTED_CLASS)
-    if (cls.length) part += '.' + cls.slice(0, 2).join('.')
-    const parent = cur.parentElement
-    if (parent) {
-      const sameTag = Array.from(parent.children).filter((c) => c.tagName === cur!.tagName)
-      if (sameTag.length > 1) {
-        const idx = sameTag.indexOf(cur) + 1
-        part += `:nth-of-type(${idx})`
-      }
-    }
-    parts.unshift(part)
-    cur = parent
-    depth++
-  }
-  return parts.join(' > ')
-}
-
-function extractInfo(el: Element): SelectedElementInfo {
-  const className = (el.getAttribute('class') || '')
-    .split(/\s+/)
-    .filter((c) => c && c !== HOVER_CLASS && c !== SELECTED_CLASS)
-    .join(' ')
-  const text = (el.textContent || '').trim().slice(0, 100)
-  return {
-    tagName: el.tagName.toLowerCase(),
-    id: el.id || undefined,
-    className: className || undefined,
-    textContent: text || undefined,
-    selector: buildSelector(el),
-  }
-}
-
 export function formatElementForPrompt(info: SelectedElementInfo): string {
   const lines: string[] = ['用户在页面上选中了以下元素，请针对该元素进行修改：']
   lines.push(`- 标签：${info.tagName}`)
@@ -80,106 +18,32 @@ export function formatElementForPrompt(info: SelectedElementInfo): string {
   return lines.join('\n')
 }
 
+/**
+ * 可视化编辑器（postMessage 版）
+ *
+ * 预览 iframe 启用沙箱隔离（无 allow-same-origin）后，主站无法直接访问
+ * iframe 的 contentDocument。元素悬浮/选中逻辑由后端注入预览页的
+ * visual-editor-agent.js 在 iframe 内部完成，双方通过 postMessage 通信：
+ *   主站 -> iframe: visual-editor:enable / visual-editor:disable / visual-editor:clear
+ *   iframe -> 主站: visual-editor:selected（携带选中元素信息）
+ */
 export function useVisualEditor(iframeRef: Ref<HTMLIFrameElement | undefined>) {
   const editMode = ref(false)
   const selectedElement = ref<SelectedElementInfo | null>(null)
 
-  let currentHover: Element | null = null
-  let currentSelected: Element | null = null
-  let attachedDoc: Document | null = null
-
-  function onMouseOver(e: Event) {
-    const target = e.target as Element
-    if (!target || target === currentSelected) return
-    if (currentHover && currentHover !== target) {
-      currentHover.classList.remove(HOVER_CLASS)
-    }
-    currentHover = target
-    if (target !== currentSelected) {
-      target.classList.add(HOVER_CLASS)
-    }
-  }
-
-  function onMouseOut(e: Event) {
-    const target = e.target as Element
-    if (target && target !== currentSelected) {
-      target.classList.remove(HOVER_CLASS)
-    }
-  }
-
-  function onClick(e: Event) {
-    e.preventDefault()
-    e.stopPropagation()
-    const target = e.target as Element
-    if (!target) return
-    if (currentSelected && currentSelected !== target) {
-      currentSelected.classList.remove(SELECTED_CLASS)
-    }
-    target.classList.remove(HOVER_CLASS)
-    target.classList.add(SELECTED_CLASS)
-    currentSelected = target
-
-    const info = extractInfo(target)
-    selectedElement.value = info
-    window.postMessage({ type: 'visual-editor:selected', payload: info }, '*')
-  }
-
-  function injectStyle(doc: Document) {
-    if (doc.getElementById(HOVER_STYLE_ID)) return
-    const style = doc.createElement('style')
-    style.id = HOVER_STYLE_ID
-    style.textContent = STYLE_CONTENT
-    doc.head.appendChild(style)
-  }
-
-  function attach() {
-    const iframe = iframeRef.value
-    if (!iframe) return
-    let doc: Document | null = null
-    try {
-      doc = iframe.contentDocument
-    } catch {
-      doc = null
-    }
-    if (!doc || !doc.body) {
-      // iframe not ready yet — retry on load
-      iframe.addEventListener('load', attach, { once: true })
-      return
-    }
-    detach()
-    attachedDoc = doc
-    injectStyle(doc)
-    doc.addEventListener('mouseover', onMouseOver, true)
-    doc.addEventListener('mouseout', onMouseOut, true)
-    doc.addEventListener('click', onClick, true)
-  }
-
-  function detach() {
-    if (!attachedDoc) return
-    try {
-      attachedDoc.removeEventListener('mouseover', onMouseOver, true)
-      attachedDoc.removeEventListener('mouseout', onMouseOut, true)
-      attachedDoc.removeEventListener('click', onClick, true)
-      if (currentHover) currentHover.classList.remove(HOVER_CLASS)
-      if (currentSelected) currentSelected.classList.remove(SELECTED_CLASS)
-      const style = attachedDoc.getElementById(HOVER_STYLE_ID)
-      if (style) style.remove()
-    } catch {
-      // ignore cross-origin or unloaded
-    }
-    currentHover = null
-    currentSelected = null
-    attachedDoc = null
+  function postToIframe(type: string) {
+    // 沙箱化 iframe 为 opaque origin，targetOrigin 只能用 '*'；消息不含敏感数据
+    iframeRef.value?.contentWindow?.postMessage({ type }, '*')
   }
 
   function enable() {
     editMode.value = true
-    attach()
+    postToIframe('visual-editor:enable')
   }
 
   function disable() {
     editMode.value = false
-    detach()
+    postToIframe('visual-editor:disable')
     selectedElement.value = null
   }
 
@@ -189,27 +53,21 @@ export function useVisualEditor(iframeRef: Ref<HTMLIFrameElement | undefined>) {
   }
 
   function clearSelection() {
-    if (attachedDoc && currentSelected) {
-      try {
-        currentSelected.classList.remove(SELECTED_CLASS)
-      } catch {
-        // ignore
-      }
-    }
-    currentSelected = null
+    postToIframe('visual-editor:clear')
     selectedElement.value = null
   }
 
-  function handleParentMessage(e: MessageEvent) {
+  function handleIframeMessage(e: MessageEvent) {
+    // 只接受当前预览 iframe 发来的选中事件
+    if (e.source !== iframeRef.value?.contentWindow) return
     if (e.data?.type === 'visual-editor:selected') {
       selectedElement.value = e.data.payload as SelectedElementInfo
     }
   }
-  window.addEventListener('message', handleParentMessage)
+  window.addEventListener('message', handleIframeMessage)
 
   function dispose() {
-    window.removeEventListener('message', handleParentMessage)
-    detach()
+    window.removeEventListener('message', handleIframeMessage)
   }
 
   return {
